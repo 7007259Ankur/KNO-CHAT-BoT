@@ -1,5 +1,4 @@
 import os
-import threading
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -50,27 +49,29 @@ def upload_document(request):
         for chunk in file.chunks():
             f.write(chunk)
 
-    # Create DB record immediately
-    if not USE_MONGO:
-        from .models import Document
-        Document.objects.create(
-            file=f"docs/{file.name}",
-            original_name=file.name,
-            processed=False
-        )
-
-    # Process in background — don't block the response
-    thread = threading.Thread(
-        target=_process_in_background,
-        args=(file_path, file.name),
-        daemon=True
-    )
-    thread.start()
-
-    return Response({
-        "message": f"'{file.name}' uploaded. Indexing in progress...",
-        "document": {"original_name": file.name},
-    })
+    # Process synchronously — Cohere is fast enough
+    try:
+        chunk_count = process_and_index(file_path)
+        print(f"[RAG] Indexed '{file.name}' — {chunk_count} chunks")
+        if USE_MONGO:
+            from .mongo import save_document
+            save_document(file.name, file_path, chunk_count)
+            print(f"[RAG] Saved '{file.name}' to MongoDB")
+        else:
+            from .models import Document
+            Document.objects.create(
+                file=f"docs/{file.name}",
+                original_name=file.name,
+                processed=True
+            )
+        return Response({
+            "message": f"'{file.name}' uploaded and indexed successfully.",
+            "document": {"original_name": file.name},
+        })
+    except Exception as e:
+        import traceback
+        print(f"[RAG] Error: {traceback.format_exc()}")
+        return Response({"error": str(e)}, status=500)
 
 
 @api_view(["POST"])
