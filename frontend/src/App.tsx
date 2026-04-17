@@ -59,7 +59,7 @@ export default function App() {
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'ai',
-        content: 'Failed to reach the backend. Make sure Django is running on port 8000.',
+        content: 'Failed to reach the backend. Please try again.',
         timestamp: new Date(),
       }]);
     } finally {
