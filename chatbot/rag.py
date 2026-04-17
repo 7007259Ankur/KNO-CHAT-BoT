@@ -19,10 +19,11 @@ Provide a clear, detailed answer based on the context above:"""
 
 
 def get_embeddings():
-    from langchain_huggingface import HuggingFaceEndpointEmbeddings
-    return HuggingFaceEndpointEmbeddings(
-        model="sentence-transformers/all-MiniLM-L6-v2",
-        huggingfacehub_api_token=os.getenv("HF_API_KEY"),
+    # Cohere free tier — fast, reliable, no local model needed
+    from langchain_community.embeddings import CohereEmbeddings
+    return CohereEmbeddings(
+        cohere_api_key=os.getenv("COHERE_API_KEY"),
+        model="embed-english-light-v3.0",
     )
 
 
@@ -41,7 +42,7 @@ def get_qdrant():
     if COLLECTION_NAME not in existing:
         client.create_collection(
             collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(size=384, distance=Distance.COSINE),
+            vectors_config=VectorParams(size=1024, distance=Distance.COSINE),
         )
 
     return QdrantVectorStore(
@@ -70,11 +71,14 @@ def process_and_index(file_path: str) -> int:
     loader = get_loader(file_path)
     docs = loader.load()
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
     chunks = splitter.split_documents(docs)
 
     store = get_qdrant()
-    store.add_documents(chunks)
+    # Add in small batches to avoid timeout
+    batch_size = 10
+    for i in range(0, len(chunks), batch_size):
+        store.add_documents(chunks[i:i+batch_size])
 
     return len(chunks)
 

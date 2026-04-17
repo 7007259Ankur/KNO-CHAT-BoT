@@ -14,7 +14,7 @@ export default defineConfig({
     port: 3004,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'https://rag-chatbot-api-dzum.onrender.com',
         changeOrigin: true,
       },
     },

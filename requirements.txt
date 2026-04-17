@@ -13,6 +13,8 @@ pypdf
 python-docx
 sentence-transformers
 pymongo[srv]
-qdrant-client
+cohere
+langchain-cohere
 gunicorn
 whitenoise
+qdrant-client

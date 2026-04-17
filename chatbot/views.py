@@ -13,16 +13,20 @@ USE_MONGO = bool(os.getenv("MONGODB_URI"))
 def _process_in_background(file_path: str, file_name: str):
     """Run indexing in a background thread so upload returns immediately."""
     try:
+        print(f"[RAG] Starting indexing for '{file_name}'...")
         chunk_count = process_and_index(file_path)
+        print(f"[RAG] Indexed '{file_name}' — {chunk_count} chunks")
         if USE_MONGO:
             from .mongo import save_document
             save_document(file_name, file_path, chunk_count)
+            print(f"[RAG] Saved '{file_name}' to MongoDB")
         else:
             from .models import Document
             Document.objects.filter(original_name=file_name).update(processed=True)
-        print(f"[RAG] Indexed '{file_name}' — {chunk_count} chunks")
     except Exception as e:
+        import traceback
         print(f"[RAG] Error indexing '{file_name}': {e}")
+        print(traceback.format_exc())
 
 
 @api_view(["POST"])

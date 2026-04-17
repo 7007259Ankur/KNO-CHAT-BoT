@@ -73,8 +73,14 @@ export default function App() {
 
     try {
       const res = await fetch('/api/upload/', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) console.error('Upload error:', data.error);
+      const text = await res.text();
+      try {
+        const data = JSON.parse(text);
+        if (!res.ok) console.error('Upload error:', data.error);
+        else console.log('Upload success:', data.message);
+      } catch {
+        console.error('Upload response not JSON:', text);
+      }
     } catch (err) {
       console.error('Upload failed:', err);
     }
