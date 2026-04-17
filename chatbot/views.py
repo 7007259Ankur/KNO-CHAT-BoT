@@ -1,4 +1,5 @@
 import os
+import threading
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -6,19 +7,22 @@ from rest_framework import status
 
 from .rag import process_and_index, ask_question
 
-# Use MongoDB if URI is configured, else fall back to Django ORM
 USE_MONGO = bool(os.getenv("MONGODB_URI"))
 
 
-def _upload_to_mongo(file, file_path, chunk_count):
-    from .mongo import save_document
-    return save_document(file.name, file_path, chunk_count)
-
-
-def _upload_to_orm(file, file_path, chunk_count):
-    from .models import Document
-    doc = Document.objects.create(file=file, original_name=file.name, processed=True)
-    return str(doc.id)
+def _process_in_background(file_path: str, file_name: str):
+    """Run indexing in a background thread so upload returns immediately."""
+    try:
+        chunk_count = process_and_index(file_path)
+        if USE_MONGO:
+            from .mongo import save_document
+            save_document(file_name, file_path, chunk_count)
+        else:
+            from .models import Document
+            Document.objects.filter(original_name=file_name).update(processed=True)
+        print(f"[RAG] Indexed '{file_name}' — {chunk_count} chunks")
+    except Exception as e:
+        print(f"[RAG] Error indexing '{file_name}': {e}")
 
 
 @api_view(["POST"])
@@ -26,16 +30,15 @@ def _upload_to_orm(file, file_path, chunk_count):
 def upload_document(request):
     file = request.FILES.get("file")
     if not file:
-        return Response({"error": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "No file provided."}, status=400)
 
     allowed = {".pdf", ".docx", ".txt"}
     ext = "." + file.name.rsplit(".", 1)[-1].lower()
     if ext not in allowed:
         return Response({"error": f"Unsupported file type. Allowed: {allowed}"}, status=400)
 
-    # Save file to disk temporarily
+    # Save file to disk
     from django.conf import settings
-    import os
     media_root = settings.MEDIA_ROOT
     os.makedirs(os.path.join(media_root, "docs"), exist_ok=True)
     file_path = os.path.join(media_root, "docs", file.name)
@@ -43,21 +46,27 @@ def upload_document(request):
         for chunk in file.chunks():
             f.write(chunk)
 
-    try:
-        chunk_count = process_and_index(file_path)
+    # Create DB record immediately
+    if not USE_MONGO:
+        from .models import Document
+        Document.objects.create(
+            file=f"docs/{file.name}",
+            original_name=file.name,
+            processed=False
+        )
 
-        if USE_MONGO:
-            _upload_to_mongo(file, file_path, chunk_count)
-        else:
-            from .models import Document
-            Document.objects.create(file=f"docs/{file.name}", original_name=file.name, processed=True)
+    # Process in background — don't block the response
+    thread = threading.Thread(
+        target=_process_in_background,
+        args=(file_path, file.name),
+        daemon=True
+    )
+    thread.start()
 
-        return Response({
-            "message": f"Uploaded and indexed '{file.name}' ({chunk_count} chunks).",
-            "document": {"original_name": file.name, "chunk_count": chunk_count},
-        })
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
+    return Response({
+        "message": f"'{file.name}' uploaded. Indexing in progress...",
+        "document": {"original_name": file.name},
+    })
 
 
 @api_view(["POST"])
