@@ -1,0 +1,5 @@
+{
+    "kiroAgent.configureMCP": "Disabled",
+    "nuxt.isNuxtApp": false,
+    "git.ignoreLimitWarning": true
+}

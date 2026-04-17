@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: rag-chatbot-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt && python manage.py migrate
+    startCommand: gunicorn rag_chatbot.wsgi --workers 2 --timeout 120
+    envVars:
+      - key: DEBUG
+        value: False
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: HF_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: QDRANT_COLLECTION
+        value: rag_documents
+      - key: MONGODB_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: ALLOWED_HOSTS
+        sync: false

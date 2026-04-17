@@ -1,0 +1,75 @@
+@import "tailwindcss";
+@source "../src";
+
+@theme {
+  --font-sans: "Segoe UI", "Helvetica Neue", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-accent-blue: #00f2ff;
+  --color-accent-purple: #bc13fe;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #0a0a12;
+  color: #ffffff;
+  font-family: "Segoe UI", "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  background-color: #0a0a12;
+  color: #ffffff;
+}
+
+/* Force all text to be bright white unless overridden */
+p,
+span,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+div,
+button,
+input,
+label {
+  color: inherit;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.neon-glow {
+  box-shadow: 0 0 20px rgba(0, 242, 255, 0.6), 0 0 60px rgba(0, 242, 255, 0.3);
+}
+
+.text-gradient {
+  background: linear-gradient(to right, #ffffff, #cccccc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
