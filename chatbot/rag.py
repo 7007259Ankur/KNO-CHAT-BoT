@@ -19,8 +19,7 @@ Provide a clear, detailed answer based on the context above:"""
 
 
 def get_embeddings():
-    # Cohere free tier — fast, reliable, no local model needed
-    from langchain_community.embeddings import CohereEmbeddings
+    from langchain_cohere import CohereEmbeddings
     return CohereEmbeddings(
         cohere_api_key=os.getenv("COHERE_API_KEY"),
         model="embed-english-light-v3.0",
