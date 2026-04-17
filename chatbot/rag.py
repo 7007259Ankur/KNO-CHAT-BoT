@@ -36,12 +36,20 @@ def get_qdrant():
         api_key=os.getenv("QDRANT_API_KEY"),
     )
 
-    # Create collection if it doesn't exist
+    # Recreate collection if dimensions don't match
     existing = [c.name for c in client.get_collections().collections]
+    if COLLECTION_NAME in existing:
+        collection_info = client.get_collection(COLLECTION_NAME)
+        existing_size = collection_info.config.params.vectors.size
+        if existing_size != 384:
+            print(f"[RAG] Recreating collection (was {existing_size}d, need 384d)")
+            client.delete_collection(COLLECTION_NAME)
+            existing = []
+
     if COLLECTION_NAME not in existing:
         client.create_collection(
             collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(size=1024, distance=Distance.COSINE),
+            vectors_config=VectorParams(size=384, distance=Distance.COSINE),
         )
 
     return QdrantVectorStore(
