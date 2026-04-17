@@ -35,6 +35,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3004",
     "http://localhost:5173",
     "http://127.0.0.1:3004",
+    "https://rag-chatbot-api-dzum.onrender.com",
 ]
 # Add production frontend URL if set
 FRONTEND_URL = os.getenv("FRONTEND_URL", "")
