@@ -2,30 +2,10 @@ import os
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
-from rest_framework import status
 
 from .rag import process_and_index, ask_question
 
 USE_MONGO = bool(os.getenv("MONGODB_URI"))
-
-
-def _process_in_background(file_path: str, file_name: str):
-    """Run indexing in a background thread so upload returns immediately."""
-    try:
-        print(f"[RAG] Starting indexing for '{file_name}'...")
-        chunk_count = process_and_index(file_path)
-        print(f"[RAG] Indexed '{file_name}' — {chunk_count} chunks")
-        if USE_MONGO:
-            from .mongo import save_document
-            save_document(file_name, file_path, chunk_count)
-            print(f"[RAG] Saved '{file_name}' to MongoDB")
-        else:
-            from .models import Document
-            Document.objects.filter(original_name=file_name).update(processed=True)
-    except Exception as e:
-        import traceback
-        print(f"[RAG] Error indexing '{file_name}': {e}")
-        print(traceback.format_exc())
 
 
 @api_view(["POST"])
@@ -40,7 +20,6 @@ def upload_document(request):
     if ext not in allowed:
         return Response({"error": f"Unsupported file type. Allowed: {allowed}"}, status=400)
 
-    # Save file to disk
     from django.conf import settings
     media_root = settings.MEDIA_ROOT
     os.makedirs(os.path.join(media_root, "docs"), exist_ok=True)
@@ -49,14 +28,14 @@ def upload_document(request):
         for chunk in file.chunks():
             f.write(chunk)
 
-    # Process synchronously — Cohere is fast enough
     try:
+        print(f"[RAG] Indexing '{file.name}'...")
         chunk_count = process_and_index(file_path)
-        print(f"[RAG] Indexed '{file.name}' — {chunk_count} chunks")
+        print(f"[RAG] Done — {chunk_count} chunks")
+
         if USE_MONGO:
             from .mongo import save_document
             save_document(file.name, file_path, chunk_count)
-            print(f"[RAG] Saved '{file.name}' to MongoDB")
         else:
             from .models import Document
             Document.objects.create(
@@ -64,13 +43,14 @@ def upload_document(request):
                 original_name=file.name,
                 processed=True
             )
+
         return Response({
-            "message": f"'{file.name}' uploaded and indexed successfully.",
-            "document": {"original_name": file.name},
+            "message": f"'{file.name}' uploaded and indexed ({chunk_count} chunks).",
+            "document": {"original_name": file.name, "chunk_count": chunk_count},
         })
     except Exception as e:
         import traceback
-        print(f"[RAG] Error: {traceback.format_exc()}")
+        print(f"[RAG] Error:\n{traceback.format_exc()}")
         return Response({"error": str(e)}, status=500)
 
 
@@ -85,8 +65,7 @@ def chat(request):
 
         if USE_MONGO:
             from .mongo import save_chat
-            saved = save_chat(query, result["answer"], result["sources"])
-            return Response(saved)
+            return Response(save_chat(query, result["answer"], result["sources"]))
         else:
             from .models import ChatMessage
             from .serializers import ChatMessageSerializer
@@ -97,6 +76,8 @@ def chat(request):
             )
             return Response(ChatMessageSerializer(msg).data)
     except Exception as e:
+        import traceback
+        print(f"[CHAT] Error:\n{traceback.format_exc()}")
         return Response({"error": str(e)}, status=500)
 
 
@@ -105,11 +86,11 @@ def chat_history(request):
     if USE_MONGO:
         from .mongo import list_chats
         return Response(list_chats())
-    else:
-        from .models import ChatMessage
-        from .serializers import ChatMessageSerializer
-        messages = ChatMessage.objects.order_by("-created_at")[:50]
-        return Response(ChatMessageSerializer(messages, many=True).data)
+    from .models import ChatMessage
+    from .serializers import ChatMessageSerializer
+    return Response(ChatMessageSerializer(
+        ChatMessage.objects.order_by("-created_at")[:50], many=True
+    ).data)
 
 
 @api_view(["GET"])
@@ -117,8 +98,8 @@ def list_documents(request):
     if USE_MONGO:
         from .mongo import list_documents
         return Response(list_documents())
-    else:
-        from .models import Document
-        from .serializers import DocumentSerializer
-        docs = Document.objects.order_by("-uploaded_at")
-        return Response(DocumentSerializer(docs, many=True).data)
+    from .models import Document
+    from .serializers import DocumentSerializer
+    return Response(DocumentSerializer(
+        Document.objects.order_by("-uploaded_at"), many=True
+    ).data)

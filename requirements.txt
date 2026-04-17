@@ -6,15 +6,12 @@ langchain
 langchain-groq
 langchain-text-splitters
 langchain-community
-langchain-huggingface
 langchain-qdrant
-faiss-cpu
+langchain-cohere
 pypdf
 python-docx
-sentence-transformers
 pymongo[srv]
 cohere
-langchain-cohere
+qdrant-client
 gunicorn
 whitenoise
-qdrant-client
